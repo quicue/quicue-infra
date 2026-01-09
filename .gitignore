@@ -1,0 +1,25 @@
+# Personal files
+CLAUDE.md
+notes.md
+task_plan.md
+overnight_task.md
+ecosystem_map.md
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CUE artifacts
+cue.mod/pkg/
+cue.mod/usr/
+
+# Temporary files
+*.tmp
+*.bak
