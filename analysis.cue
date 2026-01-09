@@ -30,27 +30,30 @@ import "list"
 		if Source[name] == _|_ {name},
 	]
 
-	// Resources in both but different
+	// Resources in both - compare key fields
+	_in_both: {
+		for name, _ in Source if Target[name] != _|_ {
+			"\(name)": true
+		}
+	}
+
+	// Field-specific diffs
 	differences: {
-		for name, src in Source
-		if Target[name] != _|_ {
+		for name, _ in _in_both {
+			let src = Source[name]
 			let tgt = Target[name]
-			if src != tgt {
+			let _cores_diff = src.cores != _|_ && tgt.cores != _|_ && src.cores != tgt.cores
+			let _mem_diff = src.memory != _|_ && tgt.memory != _|_ && src.memory != tgt.memory
+			let _ver_diff = src.version != _|_ && tgt.version != _|_ && src.version != tgt.version
+			if _cores_diff || _mem_diff || _ver_diff {
 				"\(name)": {
-					// Compare common fields
-					if src.cores != _|_ && tgt.cores != _|_ && src.cores != tgt.cores {
+					if _cores_diff {
 						cores: {source: src.cores, target: tgt.cores}
 					}
-					if src.memory != _|_ && tgt.memory != _|_ && src.memory != tgt.memory {
+					if _mem_diff {
 						memory: {source: src.memory, target: tgt.memory}
 					}
-					if src.disk != _|_ && tgt.disk != _|_ && src.disk != tgt.disk {
-						disk: {source: src.disk, target: tgt.disk}
-					}
-					if src.image != _|_ && tgt.image != _|_ && src.image != tgt.image {
-						image: {source: src.image, target: tgt.image}
-					}
-					if src.version != _|_ && tgt.version != _|_ && src.version != tgt.version {
+					if _ver_diff {
 						version: {source: src.version, target: tgt.version}
 					}
 				}
@@ -65,11 +68,15 @@ import "list"
 	_drifted: len([for k, _ in differences {k}])
 
 	summary: {
-		total_in_source:    _total
-		missing_in_target:  _missing
-		extra_in_target:    _extra
+		total_in_source:     _total
+		missing_in_target:   _missing
+		extra_in_target:     _extra
 		configuration_drift: _drifted
-		parity_percentage:  (_total - _missing - _drifted) * 100 / _total
+		// Avoid division by zero when source is empty
+		parity_percentage: [
+			if _total > 0 {(_total - _missing - _drifted) * 100 / _total},
+			100,
+		][0]
 	}
 }
 

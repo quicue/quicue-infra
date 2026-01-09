@@ -26,79 +26,95 @@ import "list"
 	Source: string
 	Target: string
 
-	// VMs to migrate (on source node)
+	// VMs to migrate (on source node via host field)
 	_vms_to_move: [
 		for name, res in Resources
-		if (res.node != _|_ && res.node == Source) ||
-			(res.host != _|_ && res.host == Source) {
-			let _vmid = res.vmid | *res.vm_id | *0
-			let _priority = res.priority | *5
-			{
-				name:     name
-				vmid:     _vmid
-				cores:    res.cores | *0
-				memory:   res.memory | *0
-				priority: _priority
-			}
+		if res.host != _|_
+		if res.host == Source {
+			_name:     name
+			_vmid:     res.vmid | *res.vm_id | *0
+			_cores:    res.cores | *0
+			_memory:   res.memory | *0
+			_priority: res.priority | *5
 		},
 	]
 
 	// Sorted by priority (lower = migrate first)
-	order: list.Sort(_vms_to_move, {x: {}, y: {}, less: x.priority < y.priority})
+	order: list.Sort(_vms_to_move, {x: {}, y: {}, less: x._priority < y._priority})
 
 	// Generate commands
 	commands: [
-		for vm in order if vm.vmid > 0 {
-			step:       "Migrate \(vm.name) (VMID \(vm.vmid))"
-			pre_check:  "qm status \(vm.vmid)"
-			migrate:    "qm migrate \(vm.vmid) \(Target) --online"
-			post_check: "ssh \(Target) 'qm status \(vm.vmid)'"
-			rollback:   "qm migrate \(vm.vmid) \(Source) --online"
+		for vm in order if vm._vmid > 0 {
+			step:       "Migrate \(vm._name) (VMID \(vm._vmid))"
+			pre_check:  "qm status \(vm._vmid)"
+			migrate:    "qm migrate \(vm._vmid) \(Target) --online"
+			post_check: "ssh \(Target) 'qm status \(vm._vmid)'"
+			rollback:   "qm migrate \(vm._vmid) \(Source) --online"
 		},
 	]
 
 	// Resource summary
-	total_cores:  list.Sum([for vm in _vms_to_move {vm.cores}])
-	total_memory: list.Sum([for vm in _vms_to_move {vm.memory}])
+	total_cores:  list.Sum([for vm in _vms_to_move {vm._cores}])
+	total_memory: list.Sum([for vm in _vms_to_move {vm._memory}])
 	vm_count:     len(_vms_to_move)
 }
 
 // #OrphanDetection - Find unused, unowned, or stale resources
 #OrphanDetection: {
-	Resources: [string]: {
-		owner?:    string
-		purpose?:  string
-		depends?:  {[string]: true}
-		used_by?:  {[string]: true}
-		cost?:     number
-		accessed?: string
-		...
+	Resources: [string]: {...}
+
+	// Helper: check if resource has used_by entries
+	_has_users: {
+		for name, res in Resources if res.used_by != _|_ {
+			if len([for k, _ in res.used_by {k}]) > 0 {
+				"\(name)": true
+			}
+		}
+	}
+
+	// Helper: check if resource has dependencies
+	_has_deps: {
+		for name, res in Resources if res.depends != _|_ {
+			if len([for k, _ in res.depends {k}]) > 0 {
+				"\(name)": true
+			}
+		}
 	}
 
 	// Orphans: Not used by anything and no dependencies
 	orphans: [
-		for name, res in Resources
-		if (res.used_by == _|_ || len([for k, _ in res.used_by {k}]) == 0)
-		if (res.depends == _|_ || len([for k, _ in res.depends {k}]) == 0) {name},
+		for name, _ in Resources
+		if _has_users[name] == _|_
+		if _has_deps[name] == _|_ {name},
 	]
 
 	// Zombies: No owner or unknown owner
 	zombies: [
 		for name, res in Resources
-		if res.owner == _|_ || res.owner == "unknown" || res.owner == "" {name},
+		if res.owner == _|_ {name},
+	]
+	_zombies_unknown: [
+		for name, res in Resources
+		if res.owner != _|_
+		if res.owner == "unknown" || res.owner == "" {name},
 	]
 
 	// Leaf nodes: Has dependencies but nothing uses them
 	leaves: [
-		for name, res in Resources
-		if (res.used_by == _|_ || len([for k, _ in res.used_by {k}]) == 0)
-		if res.depends != _|_ && len([for k, _ in res.depends {k}]) > 0 {name},
+		for name, _ in Resources
+		if _has_users[name] == _|_
+		if _has_deps[name] != _|_ {name},
 	]
 
 	// Undocumented: No purpose field
 	undocumented: [
 		for name, res in Resources
-		if res.purpose == _|_ || res.purpose == "" {name},
+		if res.purpose == _|_ {name},
+	]
+	_undoc_empty: [
+		for name, res in Resources
+		if res.purpose != _|_
+		if res.purpose == "" {name},
 	]
 
 	// Cost analysis

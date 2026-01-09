@@ -39,15 +39,29 @@ import "list"
 }
 
 // #LookupByPort - Find resources using a specific port
+// Supports structured ports: {inbound: [...], outbound: [...]}
 #LookupByPort: {
-	Resources: [string]: {ports?: [...int], ...}
+	Resources: [string]: {...}
 	Target:    int
 
-	result: [
+	// Check inbound ports
+	_inbound: [
 		for name, res in Resources
 		if res.ports != _|_
-		if list.Contains(res.ports, Target) {name},
+		if res.ports.inbound != _|_
+		if list.Contains(res.ports.inbound, Target) {name},
 	]
+
+	// Check outbound ports
+	_outbound: [
+		for name, res in Resources
+		if res.ports != _|_
+		if res.ports.outbound != _|_
+		if list.Contains(res.ports.outbound, Target) {name},
+	]
+
+	// Combine and dedupe
+	result: list.Concat([[for name in _inbound {name}], [for name in _outbound if !list.Contains(_inbound, name) {name}]])
 }
 
 // #LookupByOwner - Find resources owned by a team/person
@@ -64,14 +78,20 @@ import "list"
 
 // #LookupByNode - Find resources on a specific node/host
 #LookupByNode: {
-	Resources: [string]: {node?: string, host?: string, ...}
+	Resources: [string]: {...}
 	Target:    string
 
-	result: [
+	_by_node: [
 		for name, res in Resources
-		if (res.node != _|_ && res.node == Target) ||
-			(res.host != _|_ && res.host == Target) {name},
+		if res.node != _|_
+		if res.node == Target {name},
 	]
+	_by_host: [
+		for name, res in Resources
+		if res.host != _|_
+		if res.host == Target {name},
+	]
+	result: list.Concat([_by_node, [for n in _by_host if !list.Contains(_by_node, n) {n}]])
 }
 
 // #LookupByTag - Find resources with a specific tag
@@ -104,8 +124,8 @@ import "list"
 				for name, res in Resources
 				if res.vlan != _|_
 				if "\(res.vlan)" == vlan {
-					name: name
-					ip:   res.ip
+					_name: name
+					_ip:   res.ip | *""
 				},
 			]
 		}

@@ -282,11 +282,10 @@ package infra
 	Resources: [string]: {...}
 	Targets: [...string]
 
-	// Resources that depend on any target (via node/host field)
-	affected: {
-		for name, res in Resources {
-			let _host = res.host | *res.node | *""
-			for target in Targets if _host == target {
+	// Resources on target nodes (by host field)
+	_by_host: {
+		for name, res in Resources if res.host != _|_ {
+			for target in Targets if res.host == target {
 				"\(name)": {
 					resource:   res
 					depends_on: target
@@ -294,6 +293,20 @@ package infra
 			}
 		}
 	}
+
+	// Resources on target nodes (by node field, if no host)
+	_by_node: {
+		for name, res in Resources if res.host == _|_ && res.node != _|_ {
+			for target in Targets if res.node == target {
+				"\(name)": {
+					resource:   res
+					depends_on: target
+				}
+			}
+		}
+	}
+
+	affected: _by_host & _by_node
 
 	// Count of affected resources
 	count: len(affected)

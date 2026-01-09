@@ -111,7 +111,7 @@ package infra
 
 	routes: [
 		for owner, _ in _by_owner {
-			match: {owner: owner}
+			match: {owner: owner, ...}
 			receiver: "\(owner)-receiver"
 			resources: [
 				for name, res in Resources
