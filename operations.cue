@@ -13,49 +13,53 @@ import "list"
 
 // #MigrationPlan - Generate ordered migration commands for node evacuation
 #MigrationPlan: {
-	Resources: [string]: {
-		node?:     string
-		host?:     string
-		vmid?:     int
-		vm_id?:    int
-		cores?:    int
-		memory?:   int
-		priority?: int
-		...
-	}
+	Resources: [string]: {...}
 	Source: string
 	Target: string
 
 	// VMs to migrate (on source node via host field)
 	_vms_to_move: [
-		for name, res in Resources
+		for _n, res in Resources
 		if res.host != _|_
 		if res.host == Source {
-			_name:     name
-			_vmid:     res.vmid | *res.vm_id | *0
-			_cores:    res.cores | *0
-			_memory:   res.memory | *0
-			_priority: res.priority | *5
+			vmName: _n
+			vmid: [
+				if res.vmid != _|_ {res.vmid},
+				if res.vm_id != _|_ {res.vm_id},
+				0,
+			][0]
+			cores: [
+				if res.cores != _|_ {res.cores},
+				0,
+			][0]
+			memory: [
+				if res.memory != _|_ {res.memory},
+				0,
+			][0]
+			priority: [
+				if res.priority != _|_ {res.priority},
+				5,
+			][0]
 		},
 	]
 
 	// Sorted by priority (lower = migrate first)
-	order: list.Sort(_vms_to_move, {x: {}, y: {}, less: x._priority < y._priority})
+	order: list.Sort(_vms_to_move, {x: {}, y: {}, less: x.priority < y.priority})
 
 	// Generate commands
 	commands: [
-		for vm in order if vm._vmid > 0 {
-			step:       "Migrate \(vm._name) (VMID \(vm._vmid))"
-			pre_check:  "qm status \(vm._vmid)"
-			migrate:    "qm migrate \(vm._vmid) \(Target) --online"
-			post_check: "ssh \(Target) 'qm status \(vm._vmid)'"
-			rollback:   "qm migrate \(vm._vmid) \(Source) --online"
+		for vm in order if vm.vmid > 0 {
+			step:       "Migrate \(vm.vmName) (VMID \(vm.vmid))"
+			pre_check:  "qm status \(vm.vmid)"
+			migrate:    "qm migrate \(vm.vmid) \(Target) --online"
+			post_check: "ssh \(Target) 'qm status \(vm.vmid)'"
+			rollback:   "qm migrate \(vm.vmid) \(Source) --online"
 		},
 	]
 
 	// Resource summary
-	total_cores:  list.Sum([for vm in _vms_to_move {vm._cores}])
-	total_memory: list.Sum([for vm in _vms_to_move {vm._memory}])
+	total_cores:  list.Sum([for vm in _vms_to_move {vm.cores}])
+	total_memory: list.Sum([for vm in _vms_to_move {vm.memory}])
 	vm_count:     len(_vms_to_move)
 }
 
