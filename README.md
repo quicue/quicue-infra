@@ -8,10 +8,6 @@ Infrastructure patterns for quicue. Projections, generators, lookups, and operat
 ```
 quicue.ca/infra
 ```
-## Patterns
-
-- `projection`
-- `generator`
 
 ## Part of quicue
 
