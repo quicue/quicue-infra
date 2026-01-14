@@ -25,3 +25,6 @@ cue.mod/usr/
 # Temporary files
 *.tmp
 *.bak
+
+# Hookify local rules (not committed)
+.claude/*.local.md
