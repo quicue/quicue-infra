@@ -2,13 +2,16 @@
 
 Infrastructure patterns for quicue. Projections, generators, lookups, and operational patterns.
 
-**Status:** 🟢 Active
-## Module
+**Status:** [Active]
+## Installation
 
+```cue
+import "quicue.ca/infra"
 ```
-quicue.ca/infra
-```
+## Patterns
+- `projection`
+- `generator`
 
-## Part of quicue
+---
 
-This repository is part of the [quicue](https://quicue.ca) infrastructure-as-graph ecosystem.
+Part of the [quicue](https://quicue.ca) ecosystem.
